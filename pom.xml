@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>me.macchiatow</groupId>
+    <artifactId>gatling-grpc</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <encoding>UTF-8</encoding>
+        <scala.version>2.12.5</scala.version>
+	<scala.compat.version>2.12</scala.compat.version>
+	<gatling.version>2.3.1</gatling.version>
+	<gatling-plugin.version>2.2.4</gatling-plugin.version>
+	<scala-maven-plugin.version>3.3.2</scala-maven-plugin.version>
+        <scalapb.version>0.7.4</scalapb.version>
+        <grpc-java.version>1.12.0</grpc-java.version>
+        <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
+        <exec-maven-plugin.version>1.5.0</exec-maven-plugin.version>
+        <build-helper-maven-plugin.version>3.0.0</build-helper-maven-plugin.version>
+        <maven-antrun-plugin.version>1.8</maven-antrun-plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-reflect</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.thesamet.scalapb</groupId>
+            <artifactId>scalapb-runtime_2.12</artifactId>
+            <version>${scalapb.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.thesamet.scalapb</groupId>
+            <artifactId>scalapb-runtime-grpc_2.12</artifactId>
+            <version>${scalapb.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty</artifactId>
+            <version>${grpc-java.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.gatling</groupId>
+            <artifactId>gatling-test-framework</artifactId>
+	    <version>${gatling.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.gatling.highcharts</groupId>
+            <artifactId>gatling-charts-highcharts</artifactId>
+	    <version>${gatling.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/scala</sourceDirectory>
+        <plugins>
+            <!-- Create the generated protobuf folder in target -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>mkdir-generated-sources</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/generated-sources/protobuf" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Add the generated folder as a source -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>${build-helper-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/generated-sources/protobuf</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Compile the proto file(s) -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-scala-protobuf-classes</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <mainClass>scalapb.ScalaPBC</mainClass>
+                            <cleanupDaemonThreads>false</cleanupDaemonThreads>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <classpathScope>compile</classpathScope>
+                            <executableDependency>
+                                <groupId>com.thesamet.scalapb</groupId>
+                                <artifactId>scalapbc_2.12</artifactId>
+                            </executableDependency>
+                            <arguments>
+                                <argument>-v351</argument> <!-- for protoc v3.5.1, can be 261 for v2.6.1 -->
+                                <argument>--throw</argument> <!-- Important: otherwise scalapbc will kill the VM -->
+				<argument>--proto_path=${project.basedir}/test-spec/src/main/protobuf</argument>
+				<argument>--proto_path=${project.basedir}/third_party</argument>
+                                <argument>--scala_out=flat_package,grpc:${project.build.directory}/generated-sources/protobuf</argument>
+				<argument>${project.basedir}/test-spec/src/main/protobuf/funds.proto</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.thesamet.scalapb</groupId>
+                        <artifactId>scalapbc_2.12</artifactId>
+                        <version>${scalapb.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+		<version>${scala-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <!--<configuration>
+                            <args>
+                                <arg>-dependencyfile</arg>
+                                <arg>${project.build.directory}/.scala_dependencies</arg>
+                            </args>
+                        </configuration>-->
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.gatling</groupId>
+                <artifactId>gatling-maven-plugin</artifactId>
+		<version>${gatling-plugin.version}</version>
+                <configuration>
+                    <configFolder>${project.basedir}/src/test/resources</configFolder>
+                    <dataFolder>${project.basedir}/src/test/resources/data</dataFolder>
+                    <resultsFolder>${project.basedir}/target/gatling/results</resultsFolder>
+                    <bodiesFolder>${project.basedir}/src/test/resources/bodies</bodiesFolder>
+                    <simulationsFolder>${project.basedir}/src/test/scala</simulationsFolder>
+                    <runDescription>This-is-the-run-description</runDescription>
+                    <noReports>false</noReports>
+                    <!--   <reportsOnly>directoryName</reportsOnly> -->
+                    <!--   <simulationClass>foo.Bar</simulationClass> -->
+                    <!--   <jvmArgs> -->
+                    <!--     <jvmArg>-DmyExtraParam=foo</jvmArg> -->
+                    <!--   </jvmArgs> -->
+                    <!--    <fork>true</fork> -->
+                    <!--    <propagateSystemProperties>true</propagateSystemProperties> -->
+                    <!--   <failOnError>true</failOnError> -->
+                    <simulationClass>HelloWorldAsyncGrpcSimulation</simulationClass>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
